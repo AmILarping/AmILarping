@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Am I Larping? — Analysis in Progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0a0a;
+    --pink: #ff2e93;
+    --teal: #2dd9c4;
+    --yellow: #ffcc00;
+    --text: #f5f5f5;
+    --muted: #7a7a7a;
+    --card: #131313;
+    --border: #232323;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hazard{
+    width: 100%;
+    height: 10px;
+    background: repeating-linear-gradient(45deg, var(--yellow) 0 14px, #0a0a0a 14px 28px);
+  }
+
+  header{
+    width: 100%;
+    max-width: 640px;
+    padding: 32px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .back-link{
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .back-link:hover{ color: var(--text); }
+
+  .case-tag{
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+  }
+  .case-tag::before{
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 8px var(--teal);
+  }
+
+  main{
+    width: 100%;
+    max-width: 640px;
+    padding: 48px 24px 64px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .progress{
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 40px;
+    overflow: hidden;
+  }
+  .progress-fill{
+    height: 100%;
+    width: 0%;
+    background: var(--pink);
+    transition: width 0.4s ease;
+  }
+
+  .eyebrow{
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  h1{
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(24px, 5vw, 34px);
+    line-height: 1.3;
+    margin-bottom: 40px;
+    max-width: 500px;
+  }
+
+  .options{
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .option{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    width: 100%;
+    padding: 16px 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s, background 0.2s;
+  }
+  .option:hover{ border-color: var(--pink); transform: translateX(4px); }
+  .option.selected{ border-color: var(--teal); background: #0f1a18; }
+  .option-letter{ font-weight: 700; color: var(--pink); flex-shrink: 0; }
+
+  .status-line{
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    min-height: 18px;
+  }
+  .status-line.active{ color: var(--teal); }
+
+  .loading-state, .error-state{
+    padding-top: 80px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+  }
+  .error-state a{ color: var(--pink); }
+
+  footer{
+    padding: 24px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+
+  <div class="hazard"></div>
+
+  <header>
+    <a href="select-type.html" class="back-link">← BACK</a>
+    <div class="case-tag" id="caseTag">CASE FILE #04,832</div>
+  </header>
+
+  <main id="main">
+    <div class="loading-state" id="loadingState">PULLING RECORDS...</div>
+  </main>
+
+  <footer>AM I LARPING? — THE INTERNET'S LEAST SCIENTIFIC AUTHENTICITY TEST</footer>
+
+  <script>
+    const TOTAL_QUESTIONS = 20;
+    const params = new URLSearchParams(window.location.search);
+    const typeSlug = params.get('type'); // e.g. "finance-bro" (hyphenated, from select-type.html)
+    const archetypeKey = typeSlug ? typeSlug.replace(/-/g, '_') : null; // "finance_bro" (matches JSON keys)
+
+    const mainEl = document.getElementById('main');
+    const caseTag = document.getElementById('caseTag');
+
+    let quizQuestions = [];
+    let currentIndex = 0;
+    let totalScore = 0;
+    let totalMaxScore = 0;
+
+    function shuffle(arr){
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function showError(message){
+      mainEl.innerHTML = `<div class="error-state">${message}<br><br><a href="select-type.html">← Choose a type</a></div>`;
+    }
+
+    function renderQuizFrame(){
+      mainEl.innerHTML = `
+        <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="eyebrow" id="questionCounter"></div>
+        <h1 id="questionText"></h1>
+        <div class="options" id="optionsContainer"></div>
+        <div class="status-line" id="statusLine"></div>
+      `;
+    }
+
+    function renderQuestion(){
+      const q = quizQuestions[currentIndex];
+      const progressFill = document.getElementById('progressFill');
+      const questionCounter = document.getElementById('questionCounter');
+      const questionText = document.getElementById('questionText');
+      const optionsContainer = document.getElementById('optionsContainer');
+      const statusLine = document.getElementById('statusLine');
+
+      progressFill.style.width = `${(currentIndex / TOTAL_QUESTIONS) * 100}%`;
+      questionCounter.textContent = `Question ${currentIndex + 1} of ${TOTAL_QUESTIONS}`;
+      questionText.textContent = q.prompt;
+      statusLine.textContent = 'Select an answer to continue';
+      statusLine.classList.remove('active');
+
+      optionsContainer.innerHTML = '';
+      const letters = ['A', 'B', 'C', 'D'];
+
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option';
+        btn.innerHTML = `<span class="option-letter">${letters[i]})</span> ${opt.text}`;
+        btn.addEventListener('click', () => handleAnswer(opt.larp_score, q.max_score, btn));
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    function handleAnswer(score, maxScore, btnEl){
+      document.querySelectorAll('.option').forEach(o => {
+        o.classList.remove('selected');
+        o.style.pointerEvents = 'none';
+      });
+      btnEl.classList.add('selected');
+
+      const statusLine = document.getElementById('statusLine');
+      statusLine.textContent = 'RESPONSE LOGGED...';
+      statusLine.classList.add('active');
+
+      totalScore += score;
+      totalMaxScore += maxScore;
+      currentIndex++;
+
+      setTimeout(() => {
+        if (currentIndex < TOTAL_QUESTIONS){
+          renderQuestion();
+        } else {
+          finishQuiz();
+        }
+      }, 500);
+    }
+
+    function finishQuiz(){
+      const finalScore = Math.round((totalScore / totalMaxScore) * 100);
+      window.location.href = `results.html?type=${typeSlug}&score=${finalScore}`;
+    }
+
+    async function init(){
+      if (!typeSlug){
+        showError('No specimen selected.');
+        return;
+      }
+
+      try {
+        const res = await fetch('amilarping-question-bank.json');
+        if (!res.ok) throw new Error('File not found');
+        const data = await res.json();
+
+        const archetypeData = data.archetypes[archetypeKey];
+        if (!archetypeData || !archetypeData.questions || archetypeData.questions.length === 0){
+          showError(`No questions found for "${typeSlug}".`);
+          return;
+        }
+
+        caseTag.textContent = `CASE FILE #04,832 — ${archetypeData.label}`;
+
+        const bank = archetypeData.questions;
+        if (bank.length < TOTAL_QUESTIONS){
+          showError(`Only ${bank.length} questions available for "${archetypeData.label}" — need at least ${TOTAL_QUESTIONS}.`);
+          return;
+        }
+
+        quizQuestions = shuffle(bank).slice(0, TOTAL_QUESTIONS);
+
+        renderQuizFrame();
+        renderQuestion();
+      } catch (err){
+        showError('Could not load the question bank. Check that amilarping-question-bank.json is in the repo root.');
+      }
+    }
+
+    init();
+  </script>
+
+</body>
+</html>
